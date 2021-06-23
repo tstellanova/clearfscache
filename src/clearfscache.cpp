@@ -15,8 +15,8 @@ SYSTEM_MODE(MANUAL);
 
 SerialLogHandler logHandler(115200, LOG_LEVEL_ALL);
 
-/// List files in a directory
-static void _ls(String &path, int level, DIR *dir) {
+/// List files in a directory to logger
+static void list_directory_files(String &path, int level, DIR *dir, bool recursive=false) {
     struct dirent *entry;
     String indent;
 
@@ -44,17 +44,19 @@ static void _ls(String &path, int level, DIR *dir) {
         }
 
         if(entry->d_type == DT_DIR && strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
-            DIR *new_dir = opendir(new_path);
-            if(new_dir) {
-                _ls(new_path, level + 1, new_dir);
-                closedir(new_dir);
+            if (recursive) {
+                DIR *new_dir = opendir(new_path);
+                if(new_dir) {
+                    list_directory_files(new_path, level + 1, new_dir, recursive);
+                    closedir(new_dir);
+                }
             }
         }
     }
 }
 
 /// Delete all files in a directory
-static void _delete_all_entries(String &path, int level, DIR *dir) {
+static void delete_all_directory_files(String &path, int level, DIR *dir) {
     struct dirent *entry;
     String indent;
 
@@ -81,27 +83,18 @@ static void _delete_all_entries(String &path, int level, DIR *dir) {
             Log.info("%s removing %lu rc: %d", full_path, st.st_size, rc);
         }
         else  {
-            Log.info("%s%s", indent.c_str(), entry->d_name);
+            Log.info("skip %s%s", indent.c_str(), entry->d_name);
         }
-
-        // if(entry->d_type == DT_DIR && strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) {
-        //     DIR *new_dir = opendir(new_path);
-        //     if(new_dir)
-        //     {
-        //         _ls(new_path, level + 1, new_dir);
-        //         closedir(new_dir);
-        //     }
-        // }
     }
 }
 
 /// List files in a path
-static void ls(String path) {
+static void list_files_at_path(String path, bool recursive=false) {
+    Log.info("ls %s recursive: %u", path.c_str(), recursive);
     DIR *dir;
     dir = opendir(path);
-    if(dir)
-    {
-        _ls(path, 0, dir);
+    if(dir)  {
+        list_directory_files(path, 0, dir, recursive);
         closedir(dir);
     }
 }
@@ -112,8 +105,8 @@ static void cleanup_dir(String path) {
     DIR *dir;
     dir = opendir(path);
     if( dir) {
-        Log.info("cleaning: %s", path);
-        _delete_all_entries(path, 0, dir);
+        Log.info("cleaning: %s", path.c_str());
+        delete_all_directory_files(path, 0, dir);
         closedir(dir);
         remove(path);
     }
@@ -129,27 +122,12 @@ void setup() {
   }
 
   Log.info("start...");
-  // // The core of your code will likely live here.
-//   ls("/usr");
+  list_files_at_path("/", false);
 
-  cleanup_dir("/usr/my_cache");
-  cleanup_dir("/usr/my_cache1");
-  cleanup_dir("/usr/my_cache2");
-  cleanup_dir("/usr/my_cache3");
-  cleanup_dir("/usr/my_cache4");
-  cleanup_dir("/usr/my_cache5");
-  cleanup_dir("/usr/my_cache6");
-  cleanup_dir("/usr/my_cache7");
-  cleanup_dir("/usr/my_cache8");
-  cleanup_dir("/usr/my_cache9");
-  cleanup_dir("/usr/my_cache10");
-  cleanup_dir("/usr/my_cache11");
-  cleanup_dir("/usr/my_cache12");
-  cleanup_dir("/usr/my_cache14");
-  cleanup_dir("/usr/my_cache16");
+  list_files_at_path("/usr", false);
   cleanup_dir("/usr/my_cache18");
 
-  ls("/usr");
+  list_files_at_path("/usr", true);
 
   Log.info("....done");
 }
